@@ -1,0 +1,3 @@
+WIDTH, HEIGHT = 800, 600
+FPS = 60
+TITLE = "My Modular Game"
