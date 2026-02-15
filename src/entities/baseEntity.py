@@ -18,3 +18,11 @@ class BaseEntity(pygame.sprite.Sprite):
     def update(self):
         """Logic that runs every frame."""
         pass
+
+    def draw(self, surface):
+        """Draw the entity to the given surface.
+        
+        Args:
+            surface: The pygame surface to draw the entity on (typically the screen).
+        """
+        surface.blit(self.image, self.rect)

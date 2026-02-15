@@ -8,6 +8,7 @@ class Game:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
         self.running = True
+        self.delta_time = 0  # Time since last frame in seconds
         
         self.state = MenuState(self)
 
@@ -22,14 +23,15 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.running = False
 
+            # Calculate delta time before update
+            self.delta_time = self.clock.tick(FPS) / 1000.0  # Convert ms to seconds
+
             # 2 delegate to current state
             self.state.handle_events(events)
-            self.state.update()
+            self.state.update(self.delta_time)
 
             # 3 draw the current state
-            self.state.fill("black") # Clear screen before drawing
+            self.screen.fill("black") # Clear screen before drawing
             self.state.draw(self.screen)
             pygame.display.flip()
-
-            self.clock.tick(FPS)
         pygame.quit()

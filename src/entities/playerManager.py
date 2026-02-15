@@ -1,4 +1,4 @@
-from playerData import PlayerData 
+from .playerData import PlayerData 
 
 class PlayerManager:
     def __init__(self, data: PlayerData):
