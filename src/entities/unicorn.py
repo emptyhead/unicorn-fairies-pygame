@@ -1,9 +1,18 @@
 from .baseEntity import BaseEntity
 from .sprite_factory import create_unicorn_sprite
 import pygame
+import random
 
 
 class Unicorn(BaseEntity):
+    # Wander behaviour constants
+    WANDER_SPEED = 50                  # Base wander speed in pixels per second
+    WANDER_PAUSE_MIN = 1.0             # Minimum pause duration in seconds
+    WANDER_PAUSE_MAX = 3.0             # Maximum pause duration in seconds
+    WANDER_ARRIVAL_THRESHOLD = 5       # Distance (px) at which target is considered reached
+    WANDER_MARGIN = 10                 # Pixel margin from screen edges when picking a target
+    WANDER_SLEEP_SPEED_FACTOR = 0.25   # At max sleep need, speed is reduced to this fraction
+
     # Need decay rates per second (needs increase over time)
     NEED_DECAY_RATES = {
         'love': 2,    # Love need increases by 2 per second
@@ -75,6 +84,17 @@ class Unicorn(BaseEntity):
         
         # Update rect to match new image
         self.rect = self.image.get_rect(topleft=(x, y))
+
+        # Store the original (unflipped) sprite for directional flipping
+        self.original_image = self.image.copy()
+        self.facing_right = True
+
+        # Wander state machine variables
+        self.wander_state = 'idle'                          # 'idle' | 'moving' | 'paused'
+        self.wander_target = None                           # pygame.Vector2 target position
+        self.wander_pause_timer = 0.0                       # Countdown timer while paused
+        self.wander_bounds = (800, 600)                     # (width, height) — updated by the game state
+        self.wander_pos = pygame.Vector2(float(x), float(y))  # Sub-pixel float position accumulator
     
     def draw(self, surface):
         """Draw the unicorn and its need bars to the given surface.
@@ -88,9 +108,92 @@ class Unicorn(BaseEntity):
         # Draw need bars above the sprite
         self.draw_need_bars(surface)
     
+    def _pick_wander_target(self) -> pygame.Vector2:
+        """Pick a random target position within the screen bounds.
+
+        Returns:
+            A pygame.Vector2 representing the target position.
+        """
+        margin = self.WANDER_MARGIN
+        w, h = self.wander_bounds
+        x = random.randint(margin, int(max(margin, w - self.rect.width - margin)))
+        y = random.randint(margin, int(max(margin, h - self.rect.height - margin)))
+        return pygame.Vector2(x, y)
+
+    def _get_wander_speed(self) -> float:
+        """Return the effective wander speed, reduced by sleep need.
+
+        At sleep_need == 0  → full WANDER_SPEED (50 px/s).
+        At sleep_need == MAX_NEED_VALUE → WANDER_SPEED * WANDER_SLEEP_SPEED_FACTOR (12.5 px/s).
+
+        Returns:
+            Effective speed in pixels per second.
+        """
+        sleep_ratio = self.sleep_need / self.MAX_NEED_VALUE  # 0.0 – 1.0
+        speed_factor = 1.0 - sleep_ratio * (1.0 - self.WANDER_SLEEP_SPEED_FACTOR)
+        return self.WANDER_SPEED * speed_factor
+
+    def wander(self, delta_time: float):
+        """Advance the wander state machine by one frame.
+
+        States:
+            idle    → pick first target, transition to 'moving'.
+            moving  → move toward wander_target; on arrival transition to 'paused'.
+            paused  → count down pause timer; on expiry pick new target, transition to 'moving'.
+
+        Args:
+            delta_time: Time elapsed since last frame in seconds.
+        """
+        if self.wander_state == 'idle':
+            self.wander_target = self._pick_wander_target()
+            self.wander_state = 'moving'
+
+        elif self.wander_state == 'moving':
+            if self.wander_target is None:
+                self.wander_target = self._pick_wander_target()
+
+            to_target = self.wander_target - self.wander_pos
+            distance = to_target.length()
+
+            if distance <= self.WANDER_ARRIVAL_THRESHOLD:
+                # Arrived — snap to target and start pause
+                self.wander_pos = pygame.Vector2(self.wander_target)
+                self.rect.topleft = (int(self.wander_pos.x), int(self.wander_pos.y))
+                self.wander_pause_timer = random.uniform(
+                    self.WANDER_PAUSE_MIN, self.WANDER_PAUSE_MAX
+                )
+                self.wander_state = 'paused'
+            else:
+                # Move toward target using float accumulator to avoid sub-pixel truncation
+                step = to_target.normalize() * self._get_wander_speed() * delta_time
+
+                # Flip sprite based on horizontal direction
+                moving_right = to_target.x >= 0
+                if moving_right != self.facing_right:
+                    self.facing_right = moving_right
+                    self.image = pygame.transform.flip(
+                        self.original_image, not self.facing_right, False
+                    )
+
+                self.wander_pos += step
+
+                # Clamp float position to screen bounds
+                w, h = self.wander_bounds
+                self.wander_pos.x = max(0.0, min(self.wander_pos.x, float(w - self.rect.width)))
+                self.wander_pos.y = max(0.0, min(self.wander_pos.y, float(h - self.rect.height)))
+
+                # Sync rect from float position
+                self.rect.topleft = (int(self.wander_pos.x), int(self.wander_pos.y))
+
+        elif self.wander_state == 'paused':
+            self.wander_pause_timer -= delta_time
+            if self.wander_pause_timer <= 0:
+                self.wander_target = self._pick_wander_target()
+                self.wander_state = 'moving'
+
     def update(self, delta_time: float = 0):
         """
-        Update unicorn needs over time.
+        Update unicorn needs over time and advance wander behaviour.
         
         Args:
             delta_time: Time elapsed since last frame in seconds (for frame-rate independent updates)
@@ -105,6 +208,9 @@ class Unicorn(BaseEntity):
         # Update happiness based on needs (high needs = lower happiness)
         total_need = self.love_need + self.play_need + self.food_need + self.sleep_need
         self.happiness = max(0, 100 - (total_need / 4))
+
+        # Advance wander behaviour
+        self.wander(delta_time)
     
     def feed(self, food: str):
         """Feed the unicorn and adjust happiness."""

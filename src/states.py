@@ -2,6 +2,7 @@ import pygame
 
 from .entities.fairy import Fairy
 from .entities.unicorn import Unicorn
+from .settings import WIDTH, HEIGHT
 
 class State:
     """Base class for all game states."""
@@ -25,17 +26,22 @@ class MenuState(State):
 class PlayingState(State):
     def __init__(self, game):
         super().__init__(game)
-        # Create unicorn once, not every frame
-        self.unicorn = Unicorn("Sparkle", "A magical pink unicorn", 50, x=200, y=200)
+        # Create unicorns as a list
+        self.unicorns = [
+            Unicorn("Sparkle", "A magical pink unicorn", 50, x=200, y=200),
+            Unicorn("Rosella", "A magical yellow unicorn", 50, x=250, y=200),
+        ]
+        for u in self.unicorns:
+            u.wander_bounds = (WIDTH, HEIGHT)
         # create a fairy and draw on screen
         self.fairy = Fairy("Fairy", "Description", 10, x=100, y=100)
-    
+
     def update(self, delta_time: float = 0):
-        # Update unicorn needs
-        self.unicorn.update(delta_time)
+        for u in self.unicorns:
+            u.update(delta_time)
 
     def draw(self, screen):
         screen.fill("darkgreen") # Placeholder for Level 1
         self.fairy.draw(screen)
-        # draw the unicorn (created once in __init__)
-        self.unicorn.draw(screen)
+        for u in self.unicorns:
+            u.draw(screen)
