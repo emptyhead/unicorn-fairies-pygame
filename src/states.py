@@ -27,15 +27,15 @@ class PlayingState(State):
         super().__init__(game)
         # Create unicorn once, not every frame
         self.unicorn = Unicorn("Sparkle", "A magical pink unicorn", 50, x=200, y=200)
+        # create a fairy and draw on screen
+        self.fairy = Fairy("Fairy", "Description", 10, x=100, y=100)
     
     def update(self, delta_time: float = 0):
         # Update unicorn needs
         self.unicorn.update(delta_time)
 
     def draw(self, screen):
-        screen.fill("green") # Placeholder for Level 1
-        # create a fairy and draw on screen
-        fairy = Fairy("Fairy", "Description", 10, x=100, y=100)
-        fairy.draw(screen)
+        screen.fill("darkgreen") # Placeholder for Level 1
+        self.fairy.draw(screen)
         # draw the unicorn (created once in __init__)
         self.unicorn.draw(screen)
