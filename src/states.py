@@ -38,6 +38,10 @@ class PlayingState(State):
 
     def update(self, delta_time: float = 0):
         for u in self.unicorns:
+            u.invert_need_bars = self.game.invert_need_bars
+            u.show_need_bars = self.game.show_need_bars
+            u.show_name = self.game.show_name
+            u.show_description = self.game.show_description
             u.update(delta_time)
 
     def draw(self, screen):

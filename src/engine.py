@@ -5,11 +5,18 @@ from .states import MenuState
 class Game:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        flags = pygame.FULLSCREEN if FULLSCREEN else 0
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT), flags)
         self.clock = pygame.time.Clock()
         self.running = True
         self.delta_time = 0  # Time since last frame in seconds
-        
+
+        # Global display settings
+        self.invert_need_bars = True   # When True, need bars deplete instead of fill
+        self.show_need_bars = True      # When True, need bars are drawn above unicorns
+        self.show_name = True           # When True, unicorn name is drawn above the sprite
+        self.show_description = True    # When True, unicorn description is drawn above the sprite
+
         self.state = MenuState(self)
 
     def change_state(self, new_state):

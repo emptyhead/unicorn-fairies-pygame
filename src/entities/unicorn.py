@@ -89,6 +89,15 @@ class Unicorn(BaseEntity):
         self.original_image = self.image.copy()
         self.facing_right = True
 
+        # Individual display flags
+        self.show_need_bars = True      # When True, need bars are drawn above the sprite
+        self.show_name = True           # When True, the unicorn's name is drawn above the sprite
+        self.show_description = True    # When True, the unicorn's description is drawn above the sprite
+
+        # Need bar display flag — when True, bars deplete as needs increase (full = healthy)
+        # When False (default), bars fill as needs increase (full = urgent need)
+        self.invert_need_bars = True
+
         # Wander state machine variables
         self.wander_state = 'idle'                          # 'idle' | 'moving' | 'paused'
         self.wander_target = None                           # pygame.Vector2 target position
@@ -97,16 +106,21 @@ class Unicorn(BaseEntity):
         self.wander_pos = pygame.Vector2(float(x), float(y))  # Sub-pixel float position accumulator
     
     def draw(self, surface):
-        """Draw the unicorn and its need bars to the given surface.
-        
+        """Draw the unicorn, and optionally its need bars, name, and description.
+
         Args:
             surface: The pygame surface to draw to (typically the screen).
         """
         # Draw the unicorn sprite
         surface.blit(self.image, self.rect)
-        
-        # Draw need bars above the sprite
-        self.draw_need_bars(surface)
+
+        # Draw need bars above the sprite (if enabled)
+        if self.show_need_bars:
+            self.draw_need_bars(surface)
+
+        # Draw name and/or description above the sprite (if either is enabled)
+        if self.show_name or self.show_description:
+            self.draw_info(surface)
     
     def _pick_wander_target(self) -> pygame.Vector2:
         """Pick a random target position within the screen bounds.
@@ -156,8 +170,7 @@ class Unicorn(BaseEntity):
             distance = to_target.length()
 
             if distance <= self.WANDER_ARRIVAL_THRESHOLD:
-                # Arrived — snap to target and start pause
-                self.wander_pos = pygame.Vector2(self.wander_target)
+                # Arrived — stay at current position (no snap), start pause
                 self.rect.topleft = (int(self.wander_pos.x), int(self.wander_pos.y))
                 self.wander_pause_timer = random.uniform(
                     self.WANDER_PAUSE_MIN, self.WANDER_PAUSE_MAX
@@ -243,6 +256,38 @@ class Unicorn(BaseEntity):
             'sleep_need': self.sleep_need
         }
     
+    def draw_info(self, surface: pygame.Surface):
+        """Draw the unicorn's name and/or description above the need bars.
+
+        Each element is only rendered when its corresponding flag is True.
+        The name is rendered in white (size 18) and the description in
+        light-grey (size 14), both centred horizontally over the sprite.
+
+        Args:
+            surface: The pygame surface to draw on.
+        """
+        name_font = pygame.font.Font(None, 18)
+        desc_font = pygame.font.Font(None, 14)
+        padding = 2
+
+        # Anchor point: top of the need bars (or top of sprite if bars are hidden)
+        bars_top = self.rect.top + self.BAR_OFFSET_Y
+
+        # Build the list of surfaces to stack, bottom-most first
+        # Each entry is (surface, rendered_surface) — we stack upward
+        stack = []
+        if self.show_description:
+            stack.append(desc_font.render(self.description, True, (200, 200, 200)))
+        if self.show_name:
+            stack.append(name_font.render(self.name, True, (255, 255, 255)))
+
+        # Draw from bottom to top, starting just above the bars
+        current_bottom = bars_top - padding
+        for surf in stack:
+            rect = surf.get_rect(centerx=self.rect.centerx, bottom=current_bottom)
+            surface.blit(surf, rect)
+            current_bottom = rect.top - padding
+
     def draw_need_bars(self, surface: pygame.Surface):
         """
         Draw need bars above the unicorn sprite.
@@ -284,7 +329,10 @@ class Unicorn(BaseEntity):
             pygame.draw.rect(surface, (0, 0, 0), bg_rect)
             
             # Foreground bar (colored, fills based on need value)
-            fill_width = int(sprite_width * (need_value / self.MAX_NEED_VALUE))
+            ratio = need_value / self.MAX_NEED_VALUE
+            if self.invert_need_bars:
+                ratio = 1.0 - ratio  # Full bar = healthy, depletes as need increases
+            fill_width = int(sprite_width * ratio)
             if fill_width > 0:
                 fill_rect = pygame.Rect(self.rect.left, current_y, fill_width, self.BAR_HEIGHT)
                 pygame.draw.rect(surface, color, fill_rect)

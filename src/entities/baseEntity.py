@@ -5,11 +5,11 @@ class BaseEntity(pygame.sprite.Sprite):
         super().__init__() # Initializes the pygame Sprite logic
         
         # Placeholder setup
-        self.image = pygame.Surface(size)
+        self.image: pygame.Surface = pygame.Surface(size)
         self.image.fill(color)
         
         # Every entity needs a position (rect)
-        self.rect = self.image.get_rect(topleft=(x, y))
+        self.rect: pygame.Rect = self.image.get_rect(topleft=(x, y))
         
         # Movement variables
         self.direction = pygame.Vector2()
